@@ -2,9 +2,10 @@ import streamlit as st
 import requests
 import pandas as pd
 from streamlit_autorefresh import st_autorefresh
-from datetime import date
+
 
 st_autorefresh(interval=30000, key="refresh")
+
 
 ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI2OEFKUVUiLCJqdGkiOiI2YTNkM2NhNzNkZmE2NTYzZTA2NzI4M2YiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzgyMzk4MTE5LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3ODI0MjQ4MDB9.0R1cqy9E4XTz3W-dm2nWMv82gmjA0JQYumtTd0vZvYs"
 
@@ -13,13 +14,7 @@ headers = {
     "Authorization": f"Bearer {ACCESS_TOKEN}"
 }
 
-today = date.today().strftime("%Y-%m-%d")
-
-url = (
-    f"https://api.upstox.com/v2/option/chain"
-    f"?instrument_key=NSE_INDEX%7CNifty%2050"
-    f"&expiry_date={today}"
-)
+url = "https://api.upstox.com/v2/option/chain?instrument_key=NSE_INDEX%7CNifty%2050&expiry_date=2026-06-30"
 
 response = requests.get(url, headers=headers)
 
@@ -105,29 +100,16 @@ if response.status_code == 200:
         2
     ) if total_call_oi else 0
 
-    st.write("Total Put OI:", total_put_oi)
-st.write("Total Call OI:", total_call_oi)
-st.write("PCR:", pcr)
-
-st.subheader("Raw API Data")
-st.json(data[0])
-
     # ===================================
     # OI BUILDUP
     # ===================================
 
-pcr = round(
-    total_put_oi / total_call_oi,
-    2
-) if total_call_oi else 0
-
-st.write("Total Put OI:", total_put_oi)
-st.write("Total Call OI:", total_call_oi)
-st.write("PCR:", pcr)
-
-call_writing = (
-    near_df
-    .sort_values("CE_OI_CHANGE", ascending=False)
+    call_writing = (
+        near_df
+        .sort_values("CE_OI_CHANGE", ascending=False)
+        .head(3)
+        [["Strike", "CE_OI_CHANGE"]]
+    )
 
     put_writing = (
         near_df
@@ -153,7 +135,7 @@ call_writing = (
     # DASHBOARD HEADER
     # ===================================
 
-    st.title("NIFTY OPTION CHAIN DASHBOARD BY NAMAN")
+    st.title("NIFTY OPTION CHAIN DASHBOARD")
 
     col1, col2, col3, col4 = st.columns(4)
 
@@ -254,5 +236,3 @@ call_writing = (
     st.dataframe(
         df.sort_values("Strike")
     )
-
-
