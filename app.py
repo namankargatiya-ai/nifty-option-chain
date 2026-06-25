@@ -1,258 +1,520 @@
 import streamlit as st
 import requests
 import pandas as pd
-from streamlit_autorefresh import st_autorefresh
 from datetime import date, timedelta
 
-st_autorefresh(interval=30000, key="refresh")
-today = date.today()
+# ===================================
+# PAGE CONFIG
+# ===================================
+st.set_page_config(
+    page_title="Nifty Option Chain Dashboard",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# Monday=0, Tuesday=1, ..., Sunday=6
-if today.weekday() != 1:  # Not Tuesday
+# ===================================
+# AUTO REFRESH (every 30 seconds)
+# ===================================
+try:
+    from streamlit_autorefresh import st_autorefresh
+    st_autorefresh(interval=30000, key="refresh")
+except ImportError:
+    pass
+
+# ===================================
+# DARK THEME CSS
+# ===================================
+st.markdown("""
+<style>
+/* Import font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+/* === GLOBAL === */
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif !important;
+    background-color: #0d1117 !important;
+    color: #e6edf3 !important;
+}
+
+.stApp {
+    background-color: #0d1117 !important;
+}
+
+/* === HIDE STREAMLIT CHROME === */
+#MainMenu, footer, header { visibility: hidden; }
+.block-container {
+    padding: 1.5rem 2rem !important;
+    max-width: 100% !important;
+}
+
+/* === TITLE === */
+.dash-title {
+    text-align: center;
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: #e6edf3;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.1rem;
+}
+.dash-subtitle {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #8b949e;
+    margin-bottom: 1.2rem;
+}
+.refresh-icon {
+    color: #3fb950;
+    font-size: 1.2rem;
+}
+
+/* === TOP METRIC CARDS === */
+.metric-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    text-align: left;
+}
+.metric-label {
+    font-size: 0.72rem;
+    color: #8b949e;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+}
+.metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1;
+}
+.metric-value.green  { color: #3fb950; }
+.metric-value.cyan   { color: #58a6ff; }
+.metric-value.yellow { color: #d29922; }
+.metric-value.purple { color: #a371f7; }
+.metric-icon {
+    float: right;
+    font-size: 1.5rem;
+    opacity: 0.5;
+    margin-top: -2.5rem;
+}
+
+/* === SECTION CARDS === */
+.section-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 0.8rem;
+    height: 100%;
+}
+.section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 0.7rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #30363d;
+}
+.title-blue   { color: #58a6ff; }
+.title-green  { color: #3fb950; }
+.title-red    { color: #f85149; }
+.title-yellow { color: #d29922; }
+.title-orange { color: #e3b341; }
+
+/* === DATA TABLES === */
+.dash-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+.dash-table th {
+    color: #8b949e;
+    font-weight: 600;
+    text-align: center;
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid #30363d;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.dash-table td {
+    text-align: center;
+    padding: 0.35rem 0.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    border-bottom: 1px solid #21262d;
+}
+.dash-table tr:last-child td { border-bottom: none; }
+.dash-table .strike-col { color: #e6edf3; font-weight: 600; }
+.dash-table .green-val  { color: #3fb950; }
+.dash-table .red-val    { color: #f85149; }
+.dash-table .yellow-val { color: #d29922; }
+.dash-table .cyan-val   { color: #58a6ff; }
+
+/* === OPTION CHAIN TABLE === */
+.chain-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    margin-top: 0.8rem;
+}
+.chain-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+.chain-table th {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    border-bottom: 2px solid #30363d;
+}
+.chain-table th.calls-col { color: #3fb950; text-align: center; }
+.chain-table th.puts-col  { color: #f85149; text-align: center; }
+.chain-table th.strike-h  { color: #d29922; text-align: center; }
+.chain-table td {
+    text-align: center;
+    padding: 0.3rem 0.6rem;
+    font-family: 'JetBrains Mono', monospace;
+    border-bottom: 1px solid #21262d;
+}
+.chain-table tr:last-child td { border-bottom: none; }
+.chain-table .atm-row td {
+    background: #2d2a1a !important;
+    font-weight: 700;
+}
+.chain-table .atm-strike {
+    color: #d29922;
+    font-weight: 700;
+}
+.chain-table .atm-badge {
+    background: #d29922;
+    color: #0d1117;
+    border-radius: 4px;
+    padding: 0 5px;
+    font-size: 0.65rem;
+    margin-left: 4px;
+    font-weight: 700;
+}
+.calls-header-row {
+    background: #0d2317;
+}
+.puts-header-row {
+    background: #1f0d0d;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ===================================
+# DATE LOGIC (nearest Tuesday)
+# ===================================
+today = date.today()
+if today.weekday() != 1:
     days_until_tuesday = (1 - today.weekday()) % 7
     if days_until_tuesday == 0:
         days_until_tuesday = 7
     today = today + timedelta(days=days_until_tuesday)
 
-today = today.strftime("%Y-%m-%d")
-st.write(today)
+expiry_str = today.strftime("%Y-%m-%d")
+last_updated = date.today().strftime("%d-%m-%Y")
 
-ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI2OEFKUVUiLCJqdGkiOiI2YTNkM2NhNzNkZmE2NTYzZTA2NzI4M2YiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzgyMzk4MTE5LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3ODI0MjQ4MDB9.0R1cqy9E4XTz3W-dm2nWMv82gmjA0JQYumtTd0vZvYs"
+# ===================================
+# API CALL
+# ===================================
+ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI2OEFKUVUiLCJqdGkiOiI2YTNkM2NhNzNkZmE2NTYzZTA2NzI4M2YiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzgyMzk4MTE5LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3ODI0MjQ4MDB9.0R1cqy9E4XTz3W-dm2nWMv82gmjA0JQYumtTd0vZvYs"  # <-- Apna token yahan daalo
 
 headers = {
     "Accept": "application/json",
     "Authorization": f"Bearer {ACCESS_TOKEN}"
 }
 
-url = f"https://api.upstox.com/v2/option/chain?instrument_key=NSE_INDEX%7CNifty%2050&expiry_date={today}"
-
+url = f"https://api.upstox.com/v2/option/chain?instrument_key=NSE_INDEX%7CNifty%2050&expiry_date={expiry_str}"
 response = requests.get(url, headers=headers)
 
-if response.status_code == 200:
+# ===================================
+# HELPERS
+# ===================================
+def fmt_oi(val):
+    """Format OI in Indian number style"""
+    val = int(val)
+    if val >= 10000000:
+        return f"{val/10000000:.2f}Cr"
+    elif val >= 100000:
+        return f"{val/100000:.2f}L"
+    return f"{val:,}"
 
-    data = response.json()["data"]
+def fmt_num(val):
+    s = str(int(abs(val)))
+    groups = []
+    while len(s) > 3:
+        groups.insert(0, s[-3:])
+        s = s[:-3]
+    if s:
+        groups.insert(0, s)
+    result = ",".join(groups)
+    return ("-" if val < 0 else "") + result
 
-    rows = []
+def color_change(val, prefix="+"):
+    c = "green-val" if val >= 0 else "red-val"
+    sign = "+" if val >= 0 else ""
+    return f'<td class="{c}">{sign}{fmt_num(val)}</td>'
 
-    for item in data:
+# ===================================
+# MAIN
+# ===================================
+# TITLE
+st.markdown(f"""
+<div class="dash-title">NIFTY OPTION CHAIN DASHBOARD BY NAMAN &nbsp;<span class="refresh-icon">↻</span></div>
+<div class="dash-subtitle">Last Updated: <span style="color:#3fb950">{last_updated}</span> &nbsp;|&nbsp; Expiry: <span style="color:#58a6ff">{expiry_str}</span></div>
+""", unsafe_allow_html=True)
 
-        strike = item["strike_price"]
+if response.status_code != 200:
+    st.error(f"❌ API Error {response.status_code}: Token check karein ya market band ho sakti hai.")
+    st.stop()
 
-        ce_data = item.get("call_options", {})
-        pe_data = item.get("put_options", {})
+# ===================================
+# DATA PROCESSING
+# ===================================
+data = response.json()["data"]
+rows = []
+for item in data:
+    strike = item["strike_price"]
+    ce_data = item.get("call_options", {})
+    pe_data = item.get("put_options", {})
+    rows.append({
+        "Strike": strike,
+        "CE_OI": ce_data.get("market_data", {}).get("oi", 0),
+        "PE_OI": pe_data.get("market_data", {}).get("oi", 0),
+        "CE_OI_CHANGE": ce_data.get("market_data", {}).get("oi_day_change", 0),
+        "PE_OI_CHANGE": pe_data.get("market_data", {}).get("oi_day_change", 0),
+        "CE_LTP": ce_data.get("market_data", {}).get("ltp", 0),
+        "PE_LTP": pe_data.get("market_data", {}).get("ltp", 0)
+    })
 
-        rows.append({
-            "Strike": strike,
+df = pd.DataFrame(rows)
+spot = data[0]["underlying_spot_price"]
+atm_strike = min(df["Strike"], key=lambda x: abs(x - spot))
 
-            "CE_OI": ce_data.get("market_data", {}).get("oi", 0),
-            "PE_OI": pe_data.get("market_data", {}).get("oi", 0),
+near_df = df[(df["Strike"] >= spot - 500) & (df["Strike"] <= spot + 500)]
 
-            "CE_OI_CHANGE": ce_data.get("market_data", {}).get("oi_day_change", 0),
-            "PE_OI_CHANGE": pe_data.get("market_data", {}).get("oi_day_change", 0),
+support = near_df.sort_values("PE_OI", ascending=False).head(3)[["Strike", "PE_OI"]]
+resistance = near_df.sort_values("CE_OI", ascending=False).head(3)[["Strike", "CE_OI"]]
 
-            "CE_LTP": ce_data.get("market_data", {}).get("ltp", 0),
-            "PE_LTP": pe_data.get("market_data", {}).get("ltp", 0)
-        })
+total_put_oi = df["PE_OI"].sum()
+total_call_oi = df["CE_OI"].sum()
+pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi else 0
 
-    df = pd.DataFrame(rows)
+call_writing = near_df.sort_values("CE_OI_CHANGE", ascending=False).head(3)[["Strike", "CE_OI_CHANGE"]]
+put_writing = near_df.sort_values("PE_OI_CHANGE", ascending=False).head(3)[["Strike", "PE_OI_CHANGE"]]
 
-    # ===================================
-    # CURRENT SPOT
-    # ===================================
+if pcr > 1.2:
+    market_view = "BULLISH"
+    view_color = "green-val"
+elif pcr < 0.8:
+    market_view = "BEARISH"
+    view_color = "red-val"
+else:
+    market_view = "NEUTRAL"
+    view_color = "yellow-val"
 
-    spot = data[0]["underlying_spot_price"]
+# ===================================
+# TOP METRIC CARDS
+# ===================================
+c1, c2, c3, c4 = st.columns(4)
 
-    atm_strike = min(
-        df["Strike"],
-        key=lambda x: abs(x - spot)
-    )
+with c1:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-label">NIFTY</div>
+        <div class="metric-value green">{round(spot, 2):,.2f}</div>
+        <div class="metric-icon">📈</div>
+    </div>""", unsafe_allow_html=True)
 
-    # ===================================
-    # NEARBY STRIKES
-    # ===================================
+with c2:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-label">ATM</div>
+        <div class="metric-value cyan">{atm_strike:,.2f}</div>
+        <div class="metric-icon">⚙️</div>
+    </div>""", unsafe_allow_html=True)
 
-    near_df = df[
-        (df["Strike"] >= spot - 500) &
-        (df["Strike"] <= spot + 500)
+with c3:
+    pcr_color = "green" if pcr > 1.2 else ("red-val" if pcr < 0.8 else "yellow")
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-label">PCR</div>
+        <div class="metric-value {pcr_color}">{pcr}</div>
+        <div class="metric-icon">👥</div>
+    </div>""", unsafe_allow_html=True)
+
+with c4:
+    vcolor = "green" if market_view == "BULLISH" else ("red-val" if market_view == "BEARISH" else "yellow")
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-label">VIEW</div>
+        <div class="metric-value {vcolor}" style="font-size:1.5rem">{market_view}</div>
+        <div class="metric-icon">👁️</div>
+    </div>""", unsafe_allow_html=True)
+
+st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
+
+# ===================================
+# MIDDLE ROW: Summary | Support | Resistance | PCR
+# ===================================
+col1, col2, col3, col4 = st.columns(4)
+
+# Market Summary
+with col1:
+    summary_rows = [
+        ("Spot", f"{round(spot, 2):,.2f}", "green-val"),
+        ("ATM", f"{atm_strike:,.2f}", "cyan-val"),
+        ("PCR", str(pcr), "yellow-val"),
+        ("Market View", market_view, "green-val" if market_view == "BULLISH" else ("red-val" if market_view == "BEARISH" else "yellow-val")),
+        ("Strongest Support", f"{support.iloc[0]['Strike']:,.2f}", "green-val"),
+        ("Strongest Resistance", f"{resistance.iloc[0]['Strike']:,.2f}", "red-val"),
     ]
+    rows_html = "".join([f'<tr><td style="color:#8b949e;text-align:left;padding:0.32rem 0.4rem">{m}</td><td class="{c}" style="text-align:right;padding:0.32rem 0.4rem">{v}</td></tr>' for m, v, c in summary_rows])
+    st.markdown(f"""
+    <div class="section-card">
+        <div class="section-title title-blue">MARKET SUMMARY</div>
+        <table class="dash-table">{rows_html}</table>
+    </div>""", unsafe_allow_html=True)
 
-    # ===================================
-    # SUPPORT
-    # ===================================
+# Support
+with col2:
+    sup_rows = "".join([
+        f'<tr><td class="strike-col">{row["Strike"]:,.2f}</td><td class="green-val">{fmt_num(row["PE_OI"])}</td></tr>'
+        for _, row in support.iterrows()
+    ])
+    st.markdown(f"""
+    <div class="section-card">
+        <div class="section-title title-green">TOP SUPPORT LEVELS (Put OI)</div>
+        <table class="dash-table">
+            <tr><th>Strike</th><th>Put OI</th></tr>
+            {sup_rows}
+        </table>
+    </div>""", unsafe_allow_html=True)
 
-    support = (
-        near_df
-        .sort_values("PE_OI", ascending=False)
-        .head(3)
-        [["Strike", "PE_OI"]]
-    )
+# Resistance
+with col3:
+    res_rows = "".join([
+        f'<tr><td class="strike-col">{row["Strike"]:,.2f}</td><td class="red-val">{fmt_num(row["CE_OI"])}</td></tr>'
+        for _, row in resistance.iterrows()
+    ])
+    st.markdown(f"""
+    <div class="section-card">
+        <div class="section-title title-red">TOP RESISTANCE LEVELS (Call OI)</div>
+        <table class="dash-table">
+            <tr><th>Strike</th><th>Call OI</th></tr>
+            {res_rows}
+        </table>
+    </div>""", unsafe_allow_html=True)
 
-    # ===================================
-    # RESISTANCE
-    # ===================================
+# PCR Analysis
+with col4:
+    st.markdown(f"""
+    <div class="section-card">
+        <div class="section-title title-yellow">PCR ANALYSIS</div>
+        <table class="dash-table">
+            <tr><td style="color:#8b949e;text-align:left">Total Put OI</td><td class="green-val" style="text-align:right">{fmt_num(total_put_oi)}</td></tr>
+            <tr><td style="color:#8b949e;text-align:left">Total Call OI</td><td class="red-val" style="text-align:right">{fmt_num(total_call_oi)}</td></tr>
+            <tr><td style="color:#8b949e;text-align:left">PCR</td><td class="yellow-val" style="text-align:right;font-size:1.1rem;font-weight:700">{pcr}</td></tr>
+        </table>
+    </div>""", unsafe_allow_html=True)
 
-    resistance = (
-        near_df
-        .sort_values("CE_OI", ascending=False)
-        .head(3)
-        [["Strike", "CE_OI"]]
-    )
+st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
 
-    # ===================================
-    # PCR
-    # ===================================
+# ===================================
+# FRESH WRITING ROW
+# ===================================
+cw_col, pw_col = st.columns(2)
 
-    total_put_oi = df["PE_OI"].sum()
-    total_call_oi = df["CE_OI"].sum()
+with cw_col:
+    cw_rows = "".join([
+        f'<tr><td class="strike-col">{row["Strike"]:,.2f}</td>{color_change(row["CE_OI_CHANGE"])}</tr>'
+        for _, row in call_writing.iterrows()
+    ])
+    st.markdown(f"""
+    <div class="section-card">
+        <div class="section-title title-green">FRESH CALL WRITING</div>
+        <table class="dash-table">
+            <tr><th>Strike</th><th>CE OI Change</th></tr>
+            {cw_rows}
+        </table>
+    </div>""", unsafe_allow_html=True)
 
-    pcr = round(
-        total_put_oi / total_call_oi,
-        2
-    ) if total_call_oi else 0
+with pw_col:
+    pw_rows = "".join([
+        f'<tr><td class="strike-col">{row["Strike"]:,.2f}</td>{color_change(row["PE_OI_CHANGE"])}</tr>'
+        for _, row in put_writing.iterrows()
+    ])
+    st.markdown(f"""
+    <div class="section-card">
+        <div class="section-title title-orange">FRESH PUT WRITING</div>
+        <table class="dash-table">
+            <tr><th>Strike</th><th>PE OI Change</th></tr>
+            {pw_rows}
+        </table>
+    </div>""", unsafe_allow_html=True)
 
-    # ===================================
-    # OI BUILDUP
-    # ===================================
-
-    call_writing = (
-        near_df
-        .sort_values("CE_OI_CHANGE", ascending=False)
-        .head(3)
-        [["Strike", "CE_OI_CHANGE"]]
-    )
-
-    put_writing = (
-        near_df
-        .sort_values("PE_OI_CHANGE", ascending=False)
-        .head(3)
-        [["Strike", "PE_OI_CHANGE"]]
-    )
-
-    # ===================================
-    # MARKET VIEW
-    # ===================================
-
-    if pcr > 1.2:
-        market_view = "BULLISH"
-
-    elif pcr < 0.8:
-        market_view = "BEARISH"
-
-    else:
-        market_view = "NEUTRAL"
-
-    # ===================================
-    # DASHBOARD HEADER
-    # ===================================
-
-    st.title("NIFTY OPTION CHAIN DASHBOARD BY NAMAN")
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    col1.metric("NIFTY", round(spot, 2))
-    col2.metric("ATM", atm_strike)
-    col3.metric("PCR", pcr)
-    col4.metric("VIEW", market_view)
-
-    # ===================================
-    # SUMMARY TABLE
-    # ===================================
-
-    summary = pd.DataFrame({
-        "Metric": [
-            "Spot",
-            "ATM",
-            "PCR",
-            "Market View",
-            "Strongest Support",
-            "Strongest Resistance"
-        ],
-        "Value": [
-            round(spot, 2),
-            atm_strike,
-            pcr,
-            market_view,
-            support.iloc[0]["Strike"],
-            resistance.iloc[0]["Strike"]
-        ]
-    })
-
-    st.subheader("Market Summary")
-    st.table(summary)
-
-    # ===================================
-    # SUPPORT TABLE
-    # ===================================
-
-    st.subheader("Top Support Levels")
-
-    st.table(
-        support.rename(
-            columns={
-                "PE_OI": "Put OI"
-            }
-        )
-    )
-
-    # ===================================
-    # RESISTANCE TABLE
-    # ===================================
-
-    st.subheader("Top Resistance Levels")
-
-    st.table(
-        resistance.rename(
-            columns={
-                "CE_OI": "Call OI"
-            }
-        )
-    )
-
-    # ===================================
-    # CALL WRITING
-    # ===================================
-
-    st.subheader("Fresh Call Writing")
-
-    st.table(call_writing)
-
-    # ===================================
-    # PUT WRITING
-    # ===================================
-
-    st.subheader("Fresh Put Writing")
-
-    st.table(put_writing)
-
-    # ===================================
-    # PCR TABLE
-    # ===================================
-
-    pcr_table = pd.DataFrame({
-        "Total Put OI": [total_put_oi],
-        "Total Call OI": [total_call_oi],
-        "PCR": [pcr]
-    })
-
-    st.subheader("PCR Analysis")
-    st.table(pcr_table)
-
-    # ===================================
-    # COMPLETE OPTION CHAIN
-    # ===================================
-
-# ATM index find karo
+# ===================================
+# OPTION CHAIN TABLE
+# ===================================
 atm_index = df[df["Strike"] == atm_strike].index[0]
+chain_df = df.iloc[max(0, atm_index - 10): atm_index + 11].sort_values("Strike")
 
-# ATM ke 10 niche aur 10 upar strikes
-option_chain_view = df.iloc[
-    max(0, atm_index - 10):
-    atm_index + 11
-]
+chain_rows_html = ""
+for _, row in chain_df.iterrows():
+    is_atm = row["Strike"] == atm_strike
+    atm_class = "atm-row" if is_atm else ""
+    atm_label = f' <span class="atm-badge">★ ATM</span>' if is_atm else ""
+    strike_class = "atm-strike" if is_atm else "strike-col"
 
-st.subheader("ATM Option Chain (-10 to +10 Strikes)")
+    ce_oi_change_sign = "+" if row["CE_OI_CHANGE"] >= 0 else ""
+    pe_oi_change_sign = "+" if row["PE_OI_CHANGE"] >= 0 else ""
+    ce_change_color = "green-val" if row["CE_OI_CHANGE"] >= 0 else "red-val"
+    pe_change_color = "green-val" if row["PE_OI_CHANGE"] >= 0 else "red-val"
 
-st.dataframe(
-    option_chain_view.sort_values("Strike"),
-    use_container_width=True
-)
+    chain_rows_html += f"""
+    <tr class="{atm_class}">
+        <td class="green-val">{fmt_num(row['CE_OI'])}</td>
+        <td class="{ce_change_color}">{ce_oi_change_sign}{fmt_num(row['CE_OI_CHANGE'])}</td>
+        <td style="color:#e6edf3">{row['CE_LTP']:.2f}</td>
+        <td class="{strike_class}">{row['Strike']:.2f}{atm_label}</td>
+        <td style="color:#e6edf3">{row['PE_LTP']:.2f}</td>
+        <td class="{pe_change_color}">{pe_oi_change_sign}{fmt_num(row['PE_OI_CHANGE'])}</td>
+        <td class="red-val">{fmt_num(row['PE_OI'])}</td>
+    </tr>"""
+
+st.markdown(f"""
+<div class="chain-card">
+    <div class="section-title title-yellow" style="font-size:0.85rem">ATM OPTION CHAIN (-10 to +10 STRIKES)</div>
+    <table class="chain-table">
+        <thead>
+            <tr class="calls-header-row">
+                <th colspan="3" class="calls-col">CALLS</th>
+                <th class="strike-h">STRIKE</th>
+                <th colspan="3" class="puts-col">PUTS</th>
+            </tr>
+            <tr>
+                <th class="calls-col">CE OI</th>
+                <th class="calls-col">CE OI Change</th>
+                <th class="calls-col">CE LTP</th>
+                <th class="strike-h">—</th>
+                <th class="puts-col">PE LTP</th>
+                <th class="puts-col">PE OI Change</th>
+                <th class="puts-col">PE OI</th>
+            </tr>
+        </thead>
+        <tbody>
+            {chain_rows_html}
+        </tbody>
+    </table>
+</div>
+""", unsafe_allow_html=True)
