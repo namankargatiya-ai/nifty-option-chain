@@ -116,12 +116,11 @@ st.json(data[0])
     # OI BUILDUP
     # ===================================
 
-    call_writing = (
-        near_df
-        .sort_values("CE_OI_CHANGE", ascending=False)
-        .head(3)
-        [["Strike", "CE_OI_CHANGE"]]
-    )
+   st.write("PCR:", pcr)
+
+call_writing = (
+    near_df
+    .sort_values("CE_OI_CHANGE", ascending=False)
 
     put_writing = (
         near_df
