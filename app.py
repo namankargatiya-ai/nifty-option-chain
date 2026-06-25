@@ -2,11 +2,19 @@ import streamlit as st
 import requests
 import pandas as pd
 from streamlit_autorefresh import st_autorefresh
-from datetime import date
+from datetime import date, timedelta
 
 st_autorefresh(interval=30000, key="refresh")
+today = date.today()
 
-today = date.today().strftime("%Y-%m-%d")
+# Monday=0, Tuesday=1, ..., Sunday=6
+if today.weekday() != 1:  # Not Tuesday
+    days_until_tuesday = (1 - today.weekday()) % 7
+    if days_until_tuesday == 0:
+        days_until_tuesday = 7
+    today = today + timedelta(days=days_until_tuesday)
+
+today = today.strftime("%Y-%m-%d")
 st.write(today)
 
 ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI2OEFKUVUiLCJqdGkiOiI2YTNkM2NhNzNkZmE2NTYzZTA2NzI4M2YiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzgyMzk4MTE5LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3ODI0MjQ4MDB9.0R1cqy9E4XTz3W-dm2nWMv82gmjA0JQYumtTd0vZvYs"
