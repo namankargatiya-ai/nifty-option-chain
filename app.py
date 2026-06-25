@@ -241,8 +241,18 @@ if response.status_code == 200:
     # COMPLETE OPTION CHAIN
     # ===================================
 
-    st.subheader("Live Option Chain")
+# ATM index find karo
+atm_index = df[df["Strike"] == atm_strike].index[0]
 
-    st.dataframe(
-        df.sort_values("Strike")
-    )
+# ATM ke 10 niche aur 10 upar strikes
+option_chain_view = df.iloc[
+    max(0, atm_index - 10):
+    atm_index + 11
+]
+
+st.subheader("ATM Option Chain (-10 to +10 Strikes)")
+
+st.dataframe(
+    option_chain_view.sort_values("Strike"),
+    use_container_width=True
+)
