@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 from streamlit_autorefresh import st_autorefresh
+from datetime import date
 
 st_autorefresh(interval=30000, key="refresh")
 
@@ -12,7 +13,13 @@ headers = {
     "Authorization": f"Bearer {ACCESS_TOKEN}"
 }
 
-url = "https://api.upstox.com/v2/option/chain?instrument_key=NSE_INDEX%7CNifty%2050&expiry_date=2026-06-30"
+today = date.today().strftime("%Y-%m-%d")
+
+url = (
+    f"https://api.upstox.com/v2/option/chain"
+    f"?instrument_key=NSE_INDEX%7CNifty%2050"
+    f"&expiry_date={today}"
+)
 
 response = requests.get(url, headers=headers)
 
@@ -235,9 +242,4 @@ if response.status_code == 200:
         df.sort_values("Strike")
     )
 
-st.write("URL:", url)
 
-response = requests.get(url, headers=headers)
-
-st.write(response.status_code)
-st.write(response.text)
