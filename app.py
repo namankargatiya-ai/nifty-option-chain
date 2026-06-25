@@ -105,6 +105,13 @@ if response.status_code == 200:
         2
     ) if total_call_oi else 0
 
+    st.write("Total Put OI:", total_put_oi)
+st.write("Total Call OI:", total_call_oi)
+st.write("PCR:", pcr)
+
+st.subheader("Raw API Data")
+st.json(data[0])
+
     # ===================================
     # OI BUILDUP
     # ===================================
