@@ -116,7 +116,14 @@ st.json(data[0])
     # OI BUILDUP
     # ===================================
 
-   st.write("PCR:", pcr)
+pcr = round(
+    total_put_oi / total_call_oi,
+    2
+) if total_call_oi else 0
+
+st.write("Total Put OI:", total_put_oi)
+st.write("Total Call OI:", total_call_oi)
+st.write("PCR:", pcr)
 
 call_writing = (
     near_df
