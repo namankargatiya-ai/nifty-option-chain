@@ -250,15 +250,21 @@ def fmt_oi(val):
     return f"{val:,}"
 
 def fmt_num(val):
+    """Format number in Indian style: 1,00,00,000"""
+    sign = "-" if val < 0 else ""
     s = str(int(abs(val)))
-    groups = []
-    while len(s) > 3:
-        groups.insert(0, s[-3:])
-        s = s[:-3]
+    if len(s) <= 3:
+        return sign + s
+    # Last 3 digits
+    result = s[-3:]
+    s = s[:-3]
+    # Remaining in groups of 2
+    while len(s) > 2:
+        result = s[-2:] + "," + result
+        s = s[:-2]
     if s:
-        groups.insert(0, s)
-    result = ",".join(groups)
-    return ("-" if val < 0 else "") + result
+        result = s + "," + result
+    return sign + result
 
 def color_change(val, prefix="+"):
     c = "green-val" if val >= 0 else "red-val"
