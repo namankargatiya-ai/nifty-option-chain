@@ -16,7 +16,7 @@ headers = {
     "Authorization": f"Bearer {ACCESS_TOKEN}"
 }
 
-url = "https://api.upstox.com/v2/option/chain?instrument_key=NSE_INDEX%7CNifty%2050&expiry_date=2026-06-30"
+url = f"https://api.upstox.com/v2/option/chain?instrument_key=NSE_INDEX%7CNifty%2050&expiry_date={today}"
 
 response = requests.get(url, headers=headers)
 
