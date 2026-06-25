@@ -133,7 +133,7 @@ if response.status_code == 200:
     # DASHBOARD HEADER
     # ===================================
 
-    st.title("NIFTY OPTION CHAIN DASHBOARD")
+    st.title("NIFTY OPTION CHAIN DASHBOARD BY NAMAN")
 
     col1, col2, col3, col4 = st.columns(4)
 
