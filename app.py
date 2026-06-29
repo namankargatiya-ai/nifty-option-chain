@@ -432,8 +432,10 @@ with pw_col:
 # ===================================
 
 # Reset index so idxmin() returns a positional integer safe for iloc
+# ===================================
+# OPTION CHAIN TABLE
+# ===================================
 df = df.reset_index(drop=True)
-
 atm_pos = (df["Strike"] - atm_strike).abs().idxmin()
 start   = max(0, atm_pos - 10)
 end     = min(len(df), atm_pos + 11)
@@ -441,45 +443,46 @@ end     = min(len(df), atm_pos + 11)
 chain_df = df.iloc[start:end].copy()
 chain_df = chain_df.sort_values("Strike").reset_index(drop=True)
 
-chain_rows_html = ""
-
+# Build rows separately — no nested f-strings
+rows_parts = []
 for _, row in chain_df.iterrows():
     is_atm = abs(row["Strike"] - atm_strike) < 0.01
 
     atm_class    = "atm-row"    if is_atm else ""
     strike_class = "atm-strike" if is_atm else "strike-col"
-    atm_label    = ' <span class="atm-badge">★ ATM</span>' if is_atm else ""
+    atm_label    = '<span class="atm-badge">★ ATM</span>' if is_atm else ""
 
-    ce_oi     = row.get("CE_OI",        0) or 0
-    pe_oi     = row.get("PE_OI",        0) or 0
-    ce_change = row.get("CE_OI_CHANGE", 0) or 0
-    pe_change = row.get("PE_OI_CHANGE", 0) or 0
-    ce_ltp    = row.get("CE_LTP",       0) or 0
-    pe_ltp    = row.get("PE_LTP",       0) or 0
+    ce_oi     = float(row.get("CE_OI",        0) or 0)
+    pe_oi     = float(row.get("PE_OI",        0) or 0)
+    ce_change = float(row.get("CE_OI_CHANGE", 0) or 0)
+    pe_change = float(row.get("PE_OI_CHANGE", 0) or 0)
+    ce_ltp    = float(row.get("CE_LTP",       0) or 0)
+    pe_ltp    = float(row.get("PE_LTP",       0) or 0)
 
-    # Green = positive, Red = negative, Grey = zero
-    ce_chg_cls = "green-val" if ce_change > 0 else ("red-val" if ce_change < 0 else "neutral-val")
-    pe_chg_cls = "green-val" if pe_change > 0 else ("red-val" if pe_change < 0 else "neutral-val")
+    ce_chg_cls = "green-val"   if ce_change > 0 else ("red-val" if ce_change < 0 else "neutral-val")
+    pe_chg_cls = "green-val"   if pe_change > 0 else ("red-val" if pe_change < 0 else "neutral-val")
+    ce_sign    = "+" if ce_change > 0 else ""
+    pe_sign    = "+" if pe_change > 0 else ""
 
-    ce_sign = "+" if ce_change > 0 else ""
-    pe_sign = "+" if pe_change > 0 else ""
+    strike_disp = str(int(row["Strike"])) if float(row["Strike"]).is_integer() else f"{float(row['Strike']):.2f}"
 
-    # Show strike as integer when it's a whole number
-    strike_disp = int(row["Strike"]) if float(row["Strike"]).is_integer() else f"{float(row['Strike']):.2f}"
+    tr = (
+        f'<tr class="{atm_class}">'
+        f'<td class="green-val">{fmt_num(ce_oi)}</td>'
+        f'<td class="{ce_chg_cls}">{ce_sign}{fmt_num(ce_change)}</td>'
+        f'<td style="color:#e6edf3">{ce_ltp:.2f}</td>'
+        f'<td class="{strike_class}">{strike_disp} {atm_label}</td>'
+        f'<td style="color:#e6edf3">{pe_ltp:.2f}</td>'
+        f'<td class="{pe_chg_cls}">{pe_sign}{fmt_num(pe_change)}</td>'
+        f'<td class="red-val">{fmt_num(pe_oi)}</td>'
+        f'</tr>'
+    )
+    rows_parts.append(tr)
 
-    chain_rows_html += f"""
-    <tr class="{atm_class}">
-        <td class="green-val">{fmt_num(ce_oi)}</td>
-        <td class="{ce_chg_cls}">{ce_sign}{fmt_num(ce_change)}</td>
-        <td style="color:#e6edf3">{float(ce_ltp):.2f}</td>
-        <td class="{strike_class}">{strike_disp}{atm_label}</td>
-        <td style="color:#e6edf3">{float(pe_ltp):.2f}</td>
-        <td class="{pe_chg_cls}">{pe_sign}{fmt_num(pe_change)}</td>
-        <td class="red-val">{fmt_num(pe_oi)}</td>
-    </tr>
-    """
+chain_rows_html = "\n".join(rows_parts)
 
-st.markdown(f"""
+# Build full HTML block as a plain string — NO outer f-string nesting
+html_block = """
 <div class="chain-card">
     <div class="section-title title-yellow" style="font-size:0.85rem">
         ATM OPTION CHAIN (-10 to +10 STRIKES)
@@ -502,8 +505,10 @@ st.markdown(f"""
             </tr>
         </thead>
         <tbody>
-            {chain_rows_html}
+""" + chain_rows_html + """
         </tbody>
     </table>
 </div>
-""", unsafe_allow_html=True)
+"""
+
+st.markdown(html_block, unsafe_allow_html=True)
