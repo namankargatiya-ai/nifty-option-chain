@@ -472,35 +472,64 @@ with pw_col:
 # ===================================
 # OPTION CHAIN TABLE
 # ===================================
-atm_index = df[df["Strike"] == atm_strike].index[0]
-chain_df = df.iloc[max(0, atm_index - 10): atm_index + 11].sort_values("Strike")
+# Number formatting
+def fmt_num(x):
+    try:
+        return f"{float(x):,.0f}"
+    except:
+        return "-"
+
+
+# Find nearest ATM strike safely
+atm_index = (df["Strike"] - atm_strike).abs().idxmin()
+
+# Take 10 strikes above and below ATM
+chain_df = df.iloc[max(0, atm_index - 10):atm_index + 11].copy()
+chain_df = chain_df.sort_values("Strike")
 
 chain_rows_html = ""
-for _, row in chain_df.iterrows():
-    is_atm = row["Strike"] == atm_strike
-    atm_class = "atm-row" if is_atm else ""
-    atm_label = f' <span class="atm-badge">★ ATM</span>' if is_atm else ""
-    strike_class = "atm-strike" if is_atm else "strike-col"
 
-    ce_oi_change_sign = "+" if row["CE_OI_CHANGE"] >= 0 else ""
-    pe_oi_change_sign = "+" if row["PE_OI_CHANGE"] >= 0 else ""
-    ce_change_color = "green-val" if row["CE_OI_CHANGE"] >= 0 else "red-val"
-    pe_change_color = "green-val" if row["PE_OI_CHANGE"] >= 0 else "red-val"
+for _, row in chain_df.iterrows():
+
+    is_atm = abs(row["Strike"] - atm_strike) < 0.01
+
+    atm_class = "atm-row" if is_atm else ""
+    strike_class = "atm-strike" if is_atm else "strike-col"
+    atm_label = ' <span class="atm-badge">★ ATM</span>' if is_atm else ""
+
+    ce_change = row.get("CE_OI_CHANGE", 0)
+    pe_change = row.get("PE_OI_CHANGE", 0)
+
+    ce_change_color = "green-val" if ce_change >= 0 else "red-val"
+    pe_change_color = "green-val" if pe_change >= 0 else "red-val"
+
+    ce_sign = "+" if ce_change > 0 else ""
+    pe_sign = "+" if pe_change > 0 else ""
 
     chain_rows_html += f"""
     <tr class="{atm_class}">
         <td class="green-val">{fmt_num(row['CE_OI'])}</td>
-        <td class="{ce_change_color}">{ce_oi_change_sign}{fmt_num(row['CE_OI_CHANGE'])}</td>
-        <td style="color:#e6edf3">{row['CE_LTP']:.2f}</td>
-        <td class="{strike_class}">{row['Strike']:.2f}{atm_label}</td>
-        <td style="color:#e6edf3">{row['PE_LTP']:.2f}</td>
-        <td class="{pe_change_color}">{pe_oi_change_sign}{fmt_num(row['PE_OI_CHANGE'])}</td>
+        <td class="{ce_change_color}">{ce_sign}{fmt_num(ce_change)}</td>
+        <td style="color:#e6edf3">{float(row['CE_LTP']):.2f}</td>
+
+        <td class="{strike_class}">
+            {float(row['Strike']):.2f}{atm_label}
+        </td>
+
+        <td style="color:#e6edf3">{float(row['PE_LTP']):.2f}</td>
+        <td class="{pe_change_color}">{pe_sign}{fmt_num(pe_change)}</td>
         <td class="red-val">{fmt_num(row['PE_OI'])}</td>
-    </tr>"""
+    </tr>
+    """
+
 
 st.markdown(f"""
 <div class="chain-card">
-    <div class="section-title title-yellow" style="font-size:0.85rem">ATM OPTION CHAIN (-10 to +10 STRIKES)</div>
+    <div class="section-title title-yellow"
+         style="font-size:0.85rem">
+         ATM OPTION CHAIN (-10 to +10 STRIKES)
+    </div>
+
     <table class="chain-table">
         <thead>
             <tr class="calls-header-row">
@@ -508,16 +537,20 @@ st.markdown(f"""
                 <th class="strike-h">STRIKE</th>
                 <th colspan="3" class="puts-col">PUTS</th>
             </tr>
+
             <tr>
                 <th class="calls-col">CE OI</th>
                 <th class="calls-col">CE OI Change</th>
                 <th class="calls-col">CE LTP</th>
+
                 <th class="strike-h">—</th>
+
                 <th class="puts-col">PE LTP</th>
                 <th class="puts-col">PE OI Change</th>
                 <th class="puts-col">PE OI</th>
             </tr>
         </thead>
+
         <tbody>
             {chain_rows_html}
         </tbody>
