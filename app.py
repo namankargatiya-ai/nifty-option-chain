@@ -246,11 +246,40 @@ for item in data:
         "PE_LTP":       pe_data.get("market_data", {}).get("ltp",           0) or 0,
     })
 
-df = pd.DataFrame(rows).reset_index(drop=True)   # ← reset so iloc is safe
-
-spot       = data[0]["underlying_spot_price"]
+df = pd.DataFrame(rows).reset_index(drop=True)
+spot = data[0]["underlying_spot_price"]
 atm_strike = min(df["Strike"], key=lambda x: abs(x - spot))
 
+# ===================================
+# OI CHANGE — session_state method
+# ===================================
+current_oi = {
+    str(int(row["Strike"])): {
+        "CE_OI": int(row["CE_OI"]),
+        "PE_OI": int(row["PE_OI"])
+    }
+    for _, row in df.iterrows()
+}
+
+if "prev_oi" not in st.session_state:
+    st.session_state.prev_oi = {}
+
+prev_oi = st.session_state.prev_oi
+
+if prev_oi:
+    def get_change(strike, side):
+        key = str(int(strike))
+        curr = current_oi.get(key, {}).get(side, 0)
+        prev = prev_oi.get(key, {}).get(side, 0)
+        return curr - prev
+
+    df["CE_OI_CHANGE"] = df["Strike"].apply(lambda s: get_change(s, "CE_OI"))
+    df["PE_OI_CHANGE"] = df["Strike"].apply(lambda s: get_change(s, "PE_OI"))
+else:
+    df["CE_OI_CHANGE"] = 0
+    df["PE_OI_CHANGE"] = 0
+
+st.session_state.prev_oi = current_oi
 near_df = df[(df["Strike"] >= spot - 500) & (df["Strike"] <= spot + 500)]
 
 support    = near_df.sort_values("PE_OI", ascending=False).head(3)[["Strike", "PE_OI"]]
