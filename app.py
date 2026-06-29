@@ -220,19 +220,19 @@ def fmt_num(val):
 def color_change(val):
     c    = "green-val" if val >= 0 else "red-val"
     sign = "+" if val >= 0 else ""
-    return f'<td class="{c}">{sign}{fmt_num(val)}</td>'
+    return '<td class="' + c + '">' + sign + fmt_num(val) + '</td>'
 
 def signal_badge(signal):
     if signal == "BUY":
-        return '<span class="signal-badge badge-buy">▲ BUY</span>'
+        return '<span class="signal-badge badge-buy">&#9650; BUY</span>'
     elif signal == "SELL":
-        return '<span class="signal-badge badge-sell">▼ SELL</span>'
+        return '<span class="signal-badge badge-sell">&#9660; SELL</span>'
     else:
-        return '<span class="signal-badge badge-neutral">◆ NEUTRAL</span>'
+        return '<span class="signal-badge badge-neutral">&#9670; NEUTRAL</span>'
 
 # ===================================
 # OHLC API — RSI + VWAP
-# (session_state mein last valid data store)
+# session_state mein last valid data store
 # ===================================
 def fetch_ohlc(token):
     ohlc_url = (
@@ -247,21 +247,18 @@ def fetch_ohlc(token):
             if candles and len(candles) >= 15:
                 ohlc = pd.DataFrame(
                     candles,
-                    columns=["ts","open","high","low","close","volume","oi"]
+                    columns=["ts", "open", "high", "low", "close", "volume", "oi"]
                 )
                 ohlc = ohlc.sort_values("ts").reset_index(drop=True)
-                ohlc[["open","high","low","close","volume"]] = \
-                    ohlc[["open","high","low","close","volume"]].astype(float)
-                # Save last valid data
+                ohlc[["open", "high", "low", "close", "volume"]] = \
+                    ohlc[["open", "high", "low", "close", "volume"]].astype(float)
                 st.session_state.last_ohlc      = ohlc
                 st.session_state.last_ohlc_time = datetime.now().strftime("%d-%m-%Y %H:%M")
-                return ohlc, False   # False = live
+                return ohlc, False
     except Exception:
         pass
-
-    # Market closed or API failed — use last saved
     if "last_ohlc" in st.session_state:
-        return st.session_state.last_ohlc, True  # True = stale
+        return st.session_state.last_ohlc, True
     return None, False
 
 # ===================================
@@ -314,38 +311,36 @@ if ohlc_df is not None and len(ohlc_df) >= 15:
     vwap_series = calc_vwap(ohlc_df)
     vwap_val    = round(vwap_series.iloc[-1], 2)
     pivots      = calc_pivots(ohlc_df)
-
-    rsi_sig = "BUY" if rsi_val >= 60 else ("SELL" if rsi_val <= 40 else "NEUTRAL")
+    rsi_sig     = "BUY" if rsi_val >= 60 else ("SELL" if rsi_val <= 40 else "NEUTRAL")
 
 pivot_sig  = "NEUTRAL"
 pivot_zone = "No data"
 
 # ===================================
-# TITLE  (with live/stale indicator)
+# TITLE (with live/stale indicator)
 # ===================================
 stale_label = ""
 if "last_ohlc_time" in st.session_state:
-    data_src = (
-        f'<span style="color:#f85149">⚠️ Last: {st.session_state.last_ohlc_time}</span>'
-        if is_stale else
-        '<span style="color:#3fb950">● Live</span>'
-    )
-    stale_label = f"&nbsp;|&nbsp; Indicators: {data_src}"
+    if is_stale:
+        data_src = '<span style="color:#f85149">&#9888; Last: ' + st.session_state.last_ohlc_time + '</span>'
+    else:
+        data_src = '<span style="color:#3fb950">&#9679; Live</span>'
+    stale_label = "&nbsp;|&nbsp; Indicators: " + data_src
 
-st.markdown(f"""
-<div class="dash-title">
-    NIFTY OPTION CHAIN DASHBOARD BY NAMAN &nbsp;<span class="refresh-icon">↻</span>
-</div>
-<div class="dash-subtitle">
-    Last Updated: <span style="color:#3fb950">{last_updated}</span>
-    &nbsp;|&nbsp;
-    Expiry: <span style="color:#58a6ff">{expiry_str}</span>
-    {stale_label}
-</div>
-""", unsafe_allow_html=True)
+st.markdown(
+    '<div class="dash-title">NIFTY OPTION CHAIN DASHBOARD BY NAMAN &nbsp;'
+    '<span class="refresh-icon">&#8635;</span></div>'
+    '<div class="dash-subtitle">'
+    'Last Updated: <span style="color:#3fb950">' + last_updated + '</span>'
+    '&nbsp;|&nbsp;'
+    'Expiry: <span style="color:#58a6ff">' + expiry_str + '</span>'
+    + stale_label +
+    '</div>',
+    unsafe_allow_html=True
+)
 
 if response.status_code != 200:
-    st.error(f"❌ API Error {response.status_code}: Token check karein ya market band ho sakti hai.")
+    st.error("API Error " + str(response.status_code) + ": Token check karein ya market band ho sakti hai.")
     st.stop()
 
 # ===================================
@@ -421,7 +416,6 @@ else:
 
 # ===================================
 # VWAP + PIVOT SIGNALS
-# (needs spot, so computed after data processing)
 # ===================================
 if vwap_val is not None:
     if spot > vwap_val * 1.001:
@@ -433,17 +427,23 @@ if vwap_val is not None:
 
 if pivots:
     if spot > pivots["R2"]:
-        pivot_sig  = "SELL"; pivot_zone = f"Above R2 ({pivots['R2']:,.0f})"
+        pivot_sig  = "SELL"
+        pivot_zone = "Above R2 (" + str(int(pivots["R2"])) + ")"
     elif spot > pivots["R1"]:
-        pivot_sig  = "BUY";  pivot_zone = f"R1–R2 ({pivots['R1']:,.0f}–{pivots['R2']:,.0f})"
+        pivot_sig  = "BUY"
+        pivot_zone = "R1-R2 (" + str(int(pivots["R1"])) + "-" + str(int(pivots["R2"])) + ")"
     elif spot > pivots["P"]:
-        pivot_sig  = "BUY";  pivot_zone = f"Pivot–R1 ({pivots['P']:,.0f}–{pivots['R1']:,.0f})"
+        pivot_sig  = "BUY"
+        pivot_zone = "Pivot-R1 (" + str(int(pivots["P"])) + "-" + str(int(pivots["R1"])) + ")"
     elif spot > pivots["S1"]:
-        pivot_sig  = "NEUTRAL"; pivot_zone = f"S1–Pivot ({pivots['S1']:,.0f}–{pivots['P']:,.0f})"
+        pivot_sig  = "NEUTRAL"
+        pivot_zone = "S1-Pivot (" + str(int(pivots["S1"])) + "-" + str(int(pivots["P"])) + ")"
     elif spot > pivots["S2"]:
-        pivot_sig  = "SELL"; pivot_zone = f"S2–S1 ({pivots['S2']:,.0f}–{pivots['S1']:,.0f})"
+        pivot_sig  = "SELL"
+        pivot_zone = "S2-S1 (" + str(int(pivots["S2"])) + "-" + str(int(pivots["S1"])) + ")"
     else:
-        pivot_sig  = "SELL"; pivot_zone = f"Below S2 ({pivots['S2']:,.0f})"
+        pivot_sig  = "SELL"
+        pivot_zone = "Below S2 (" + str(int(pivots["S2"])) + ")"
 
 # Overall signal — majority vote
 signals    = [rsi_sig, vwap_sig, pivot_sig]
@@ -462,39 +462,48 @@ else:
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-label">NIFTY SPOT</div>
-        <div class="metric-value green">{round(spot, 2):,.2f}</div>
-        <div class="metric-icon">📈</div>
-    </div>""", unsafe_allow_html=True)
+    st.markdown(
+        '<div class="metric-card">'
+        '<div class="metric-label">NIFTY SPOT</div>'
+        '<div class="metric-value green">' + f"{round(spot, 2):,.2f}" + '</div>'
+        '<div class="metric-icon">&#128200;</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
 with c2:
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-label">ATM STRIKE</div>
-        <div class="metric-value cyan">{atm_strike:,.0f}</div>
-        <div class="metric-icon">⚙️</div>
-    </div>""", unsafe_allow_html=True)
+    st.markdown(
+        '<div class="metric-card">'
+        '<div class="metric-label">ATM STRIKE</div>'
+        '<div class="metric-value cyan">' + f"{atm_strike:,.0f}" + '</div>'
+        '<div class="metric-icon">&#9881;</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
 with c3:
     pcr_color = "green" if pcr > 1.2 else ("red" if pcr < 0.8 else "yellow")
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-label">PCR</div>
-        <div class="metric-value {pcr_color}">{pcr}</div>
-        <div class="metric-icon">👥</div>
-    </div>""", unsafe_allow_html=True)
+    st.markdown(
+        '<div class="metric-card">'
+        '<div class="metric-label">PCR</div>'
+        '<div class="metric-value ' + pcr_color + '">' + str(pcr) + '</div>'
+        '<div class="metric-icon">&#128101;</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
 with c4:
     ov_color = "green" if overall_sig == "BUY" else ("red" if overall_sig == "SELL" else "yellow")
-    ov_icon  = "▲" if overall_sig == "BUY" else ("▼" if overall_sig == "SELL" else "◆")
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-label">OVERALL SIGNAL</div>
-        <div class="metric-value {ov_color}" style="font-size:1.5rem">{ov_icon} {overall_sig}</div>
-        <div class="metric-icon">🎯</div>
-    </div>""", unsafe_allow_html=True)
+    ov_icon  = "&#9650;" if overall_sig == "BUY" else ("&#9660;" if overall_sig == "SELL" else "&#9670;")
+    st.markdown(
+        '<div class="metric-card">'
+        '<div class="metric-label">OVERALL SIGNAL</div>'
+        '<div class="metric-value ' + ov_color + '" style="font-size:1.5rem">'
+        + ov_icon + ' ' + overall_sig + '</div>'
+        '<div class="metric-icon">&#127919;</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
 st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
 
@@ -512,171 +521,65 @@ with col1:
         ("Strongest Support",    f"{support.iloc[0]['Strike']:,.0f}",    "green-val"),
         ("Strongest Resistance", f"{resistance.iloc[0]['Strike']:,.0f}", "red-val"),
     ]
-    rows_html = "".join([
-        f'<tr>'
-        f'<td style="color:#8b949e;text-align:left;padding:0.32rem 0.4rem">{m}</td>'
-        f'<td class="{c}" style="text-align:right;padding:0.32rem 0.4rem">{v}</td>'
-        f'</tr>'
-        for m, v, c in summary_rows
-    ])
-    st.markdown(f"""
-    <div class="section-card">
-        <div class="section-title title-blue">MARKET SUMMARY</div>
-        <table class="dash-table">{rows_html}</table>
-    </div>""", unsafe_allow_html=True)
+    rows_html = ""
+    for m, v, c in summary_rows:
+        rows_html += (
+            '<tr>'
+            '<td style="color:#8b949e;text-align:left;padding:0.32rem 0.4rem">' + m + '</td>'
+            '<td class="' + c + '" style="text-align:right;padding:0.32rem 0.4rem">' + v + '</td>'
+            '</tr>'
+        )
+    st.markdown(
+        '<div class="section-card">'
+        '<div class="section-title title-blue">MARKET SUMMARY</div>'
+        '<table class="dash-table">' + rows_html + '</table>'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
 with col2:
-    sup_rows = "".join([
-        f'<tr>'
-        f'<td class="strike-col">{row["Strike"]:,.0f}</td>'
-        f'<td class="green-val">{fmt_num(row["PE_OI"])}</td>'
-        f'</tr>'
-        for _, row in support.iterrows()
-    ])
-    st.markdown(f"""
-    <div class="section-card">
-        <div class="section-title title-green">TOP SUPPORT (Put OI)</div>
-        <table class="dash-table">
-            <tr><th>Strike</th><th>Put OI</th></tr>
-            {sup_rows}
-        </table>
-    </div>""", unsafe_allow_html=True)
+    sup_rows = ""
+    for _, row in support.iterrows():
+        sup_rows += (
+            '<tr>'
+            '<td class="strike-col">' + f"{row['Strike']:,.0f}" + '</td>'
+            '<td class="green-val">' + fmt_num(row["PE_OI"]) + '</td>'
+            '</tr>'
+        )
+    st.markdown(
+        '<div class="section-card">'
+        '<div class="section-title title-green">TOP SUPPORT (Put OI)</div>'
+        '<table class="dash-table">'
+        '<tr><th>Strike</th><th>Put OI</th></tr>'
+        + sup_rows +
+        '</table></div>',
+        unsafe_allow_html=True
+    )
 
 with col3:
-    res_rows = "".join([
-        f'<tr>'
-        f'<td class="strike-col">{row["Strike"]:,.0f}</td>'
-        f'<td class="red-val">{fmt_num(row["CE_OI"])}</td>'
-        f'</tr>'
-        for _, row in resistance.iterrows()
-    ])
-    st.markdown(f"""
-    <div class="section-card">
-        <div class="section-title title-red">TOP RESISTANCE (Call OI)</div>
-        <table class="dash-table">
-            <tr><th>Strike</th><th>Call OI</th></tr>
-            {res_rows}
-        </table>
-    </div>""", unsafe_allow_html=True)
+    res_rows = ""
+    for _, row in resistance.iterrows():
+        res_rows += (
+            '<tr>'
+            '<td class="strike-col">' + f"{row['Strike']:,.0f}" + '</td>'
+            '<td class="red-val">' + fmt_num(row["CE_OI"]) + '</td>'
+            '</tr>'
+        )
+    st.markdown(
+        '<div class="section-card">'
+        '<div class="section-title title-red">TOP RESISTANCE (Call OI)</div>'
+        '<table class="dash-table">'
+        '<tr><th>Strike</th><th>Call OI</th></tr>'
+        + res_rows +
+        '</table></div>',
+        unsafe_allow_html=True
+    )
 
 with col4:
-    st.markdown(f"""
-    <div class="section-card">
-        <div class="section-title title-yellow">PCR ANALYSIS</div>
-        <table class="dash-table">
-            <tr>
-                <td style="color:#8b949e;text-align:left">Total Put OI</td>
-                <td class="green-val" style="text-align:right">{fmt_num(total_put_oi)}</td>
-            </tr>
-            <tr>
-                <td style="color:#8b949e;text-align:left">Total Call OI</td>
-                <td class="red-val" style="text-align:right">{fmt_num(total_call_oi)}</td>
-            </tr>
-            <tr>
-               .chain-card {
-    background: #161b22; border: 1px solid #30363d;
-    border-radius: 10px; padding: 1rem 1.2rem; margin-top: 0.8rem;
-    overflow-x: auto;
-}
-.chain-table {
-    width: 100%; border-collapse: collapse;
-    font-size: 0.78rem; min-width: 700px;
-}
-.chain-table th {
-    padding: 0.4rem 0.8rem; font-size: 0.7rem; font-weight: 700;
-    letter-spacing: 0.07em; text-transform: uppercase;
-    border-bottom: 2px solid #30363d;
-}
-.chain-table th.calls-col { color: #3fb950; text-align: center; background: #0d2317; }
-.chain-table th.puts-col  { color: #f85149; text-align: center; background: #1f0d0d; }
-.chain-table th.strike-h  { color: #d29922; text-align: center; }
-.chain-table td {
-    text-align: right; padding: 0.32rem 0.8rem;
-    font-family: 'JetBrains Mono', monospace;
-    border-bottom: 1px solid #21262d;
-}
-.chain-table td.strike-col,
-.chain-table td.atm-strike { text-align: center; }
-.chain-table tr:last-child td { border-bottom: none; }
-.chain-table tbody tr:hover { background: #1f2937; }
-
-.chain-table .atm-row td { background: #2d2a1a !important; font-weight: 700; }
-.chain-table .atm-strike { color: #d29922; font-weight: 700; }
-.chain-table .atm-badge {
-    background: #d29922; color: #0d1117; border-radius: 4px;
-    padding: 1px 5px; font-size: 0.65rem; margin-left: 4px;
-    font-weight: 700; vertical-align: middle;
-}
-.calls-header-row { background: #0d2317; }
-
-.green-val   { color: #3fb950; }
-.red-val     { color: #f85149; }
-.neutral-val { color: #8b949e; }
-.strike-col  { color: #c9d1d9; font-weight: 600; }
-</style>
-""", unsafe_allow_html=True)
-
-# ===================================
-# DATE LOGIC (nearest Tuesday)
-# ===================================
-today = date.today()
-if today.weekday() != 1:
-    days_until_tuesday = (1 - today.weekday()) % 7
-    if days_until_tuesday == 0:
-        days_until_tuesday = 7
-    today = today + timedelta(days=days_until_tuesday)
-
-expiry_str    = today.strftime("%Y-%m-%d")
-last_updated  = date.today().strftime("%d-%m-%Y")
-
-# ===================================
-# API CALL
-# ===================================
-ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI2OEFKUVUiLCJqdGkiOiI2YTQxZWI5NmYyNGJiZjFjMjA0ZWFkODIiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaXNFeHRlbmRlZCI6dHJ1ZSwiaWF0IjoxNzgyNzA1MDQ2LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE4MTQzMDY0MDB9.LuQ-H-ix7cRKRvn_8DEE2r5_VhOoLK2Szz4VHn3qAxE"   # <-- Apna token yahan daalo
-
-headers = {
-    "Accept": "application/json",
-    "Authorization": f"Bearer {ACCESS_TOKEN}"
-}
-
-url = (
-    f"https://api.upstox.com/v2/option/chain"
-    f"?instrument_key=NSE_INDEX%7CNifty%2050&expiry_date={expiry_str}"
-)
-response = requests.get(url, headers=headers)
-
-# ===================================
-# HELPERS  (defined ONCE, used everywhere)
-# ===================================
-def fmt_oi(val):
-    val = int(val)
-    if val >= 10_000_000:
-        return f"{val/10_000_000:.2f}Cr"
-    elif val >= 100_000:
-        return f"{val/100_000:.2f}L"
-    return f"{val:,}"
-
-def fmt_num(val):
-    """Indian-style number formatting, handles int/float/None."""
-    try:
-        val = float(val)
-    except (TypeError, ValueError):
-        return "-"
-    sign = "-" if val < 0 else ""
-    s = str(int(abs(val)))
-    if len(s) <= 3:
-        return sign + s
-    result = s[-3:]
-    s = s[:-3]
-    while len(s) > 2:
-        result = s[-2:] + "," + result
-        s = s[:-2]
-    if s:
-        result = s + "," + result
-    return sign + result
-
-def color_change(val, prefix="+"):
-    c    = "green-val" if val >= 0 else "red-val"
+    st.markdown(
+        '<div class="section-card">'
+        '<div class="section-title title-yellow">PCR ANALYSIS</div>'
+   al >= 0 else "red-val"
     sign = "+" if val >= 0 else ""
     return f'<td class="{c}">{sign}{fmt_num(val)}</td>'
 
