@@ -161,7 +161,8 @@ last_updated  = date.today().strftime("%d-%m-%Y")
 # ===================================
 # API CALL
 # ===================================
-ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI2OEFKUVUiLCJqdGkiOiI2YTQxZWI5NmYyNGJiZjFjMjA0ZWFkODIiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaXNFeHRlbmRlZCI6dHJ1ZSwiaWF0IjoxNzgyNzA1MDQ2LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE4MTQzMDY0MDB9.LuQ-H-ix7cRKRvn_8DEE2r5_VhOoLK2Szz4VHn3qAxE"   # <-- Apna token yahan daalo
+ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI2OEFKUVUiLCJqdGkiOiI2YTQxZWI5NmYyNGJiZjFjMjA0ZWFkODIiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaXNFeHRlbmRlZCI6dHJ1ZSwiaWF0IjoxNzgyNzA1MDQ2LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE4MTQzMDY0MDB9.LuQ-H-ix7cRKRvn_8DEE2r5_VhOoLK2Szz4VHn3qAxE"  
+ # <-- Apna token yahan daalo
 
 headers = {
     "Accept": "application/json",
