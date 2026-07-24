@@ -3,6 +3,8 @@ import requests
 import pandas as pd
 from datetime import date, timedelta
 
+from oi_history import save_snapshot, get_snapshot_near, now_ist, SNAPSHOT_INTERVAL_MIN
+
 # ===================================
 # PAGE CONFIG
 # ===================================
@@ -251,6 +253,12 @@ df = pd.DataFrame(rows).reset_index(drop=True)   # ← reset so iloc is safe
 
 spot       = data[0]["underlying_spot_price"]
 atm_strike = min(df["Strike"], key=lambda x: abs(x - spot))
+
+# ===================================
+# SAVE 5-MIN OI SNAPSHOT (market hours only)
+# ===================================
+current_time_ist = now_ist()
+save_snapshot(df, spot, current_time_ist)
 
 near_df = df[(df["Strike"] >= spot - 500) & (df["Strike"] <= spot + 500)]
 
@@ -508,3 +516,94 @@ html_block = """
 """
 
 st.markdown(html_block, unsafe_allow_html=True)
+
+# ===================================
+# OI CHANGE COMPARISON (vs previous snapshot)
+# ===================================
+st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
+
+compare_col, _ = st.columns([1, 3])
+with compare_col:
+    lookback_min = st.selectbox(
+        "Compare vs",
+        [5, 15, 30, 60],
+        index=0,
+        format_func=lambda m: f"{m} min ago",
+        key="oi_lookback",
+    )
+
+snap_ts, prev_df = get_snapshot_near(current_time_ist - timedelta(minutes=lookback_min))
+
+if prev_df is None:
+    st.info(
+        f"No snapshot found ~{lookback_min} min ago yet. Snapshots are captured every "
+        f"{SNAPSHOT_INTERVAL_MIN} min during market hours (9:15-15:30 IST, Mon-Fri) — check back shortly."
+    )
+else:
+    key_df  = chain_df.assign(_sk=chain_df["Strike"].round(2))
+    prev_key = prev_df.assign(_sk=prev_df["Strike"].round(2))[["_sk", "CE_OI", "PE_OI"]]
+
+    merged = key_df.merge(prev_key, on="_sk", how="left", suffixes=("", "_prev"))
+    merged["CE_OI_DIFF"] = merged["CE_OI"] - merged["CE_OI_prev"]
+    merged["PE_OI_DIFF"] = merged["PE_OI"] - merged["PE_OI_prev"]
+
+    comp_rows_parts = []
+    for _, row in merged.iterrows():
+        is_atm = abs(row["Strike"] - atm_strike) < 0.01
+        atm_class    = "atm-row"    if is_atm else ""
+        strike_class = "atm-strike" if is_atm else "strike-col"
+        atm_label    = '<span class="atm-badge">★ ATM</span>' if is_atm else ""
+
+        ce_diff = row["CE_OI_DIFF"]
+        pe_diff = row["PE_OI_DIFF"]
+        ce_cls  = "green-val" if ce_diff > 0 else ("red-val" if ce_diff < 0 else "neutral-val")
+        pe_cls  = "green-val" if pe_diff > 0 else ("red-val" if pe_diff < 0 else "neutral-val")
+        ce_sign = "+" if ce_diff > 0 else ""
+        pe_sign = "+" if pe_diff > 0 else ""
+
+        strike_disp = str(int(row["Strike"])) if float(row["Strike"]).is_integer() else f"{float(row['Strike']):.2f}"
+
+        comp_rows_parts.append(
+            f'<tr class="{atm_class}">'
+            f'<td style="color:#8b949e">{fmt_num(row["CE_OI_prev"])}</td>'
+            f'<td style="color:#e6edf3">{fmt_num(row["CE_OI"])}</td>'
+            f'<td class="{ce_cls}">{ce_sign}{fmt_num(ce_diff)}</td>'
+            f'<td class="{strike_class}">{strike_disp} {atm_label}</td>'
+            f'<td class="{pe_cls}">{pe_sign}{fmt_num(pe_diff)}</td>'
+            f'<td style="color:#e6edf3">{fmt_num(row["PE_OI"])}</td>'
+            f'<td style="color:#8b949e">{fmt_num(row["PE_OI_prev"])}</td>'
+            f'</tr>'
+        )
+
+    comp_rows_html = "\n".join(comp_rows_parts)
+    snap_label = snap_ts.strftime("%H:%M:%S")
+
+    comp_html = """
+<div class="chain-card">
+    <div class="section-title title-yellow" style="font-size:0.85rem">
+        OI CHANGE vs """ + snap_label + """ IST (""" + str(lookback_min) + """ min ago)
+    </div>
+    <table class="chain-table">
+        <thead>
+            <tr>
+                <th colspan="3" class="calls-col">CALLS</th>
+                <th class="strike-h">STRIKE</th>
+                <th colspan="3" class="puts-col">PUTS</th>
+            </tr>
+            <tr>
+                <th class="calls-col">CE OI (prev)</th>
+                <th class="calls-col">CE OI (now)</th>
+                <th class="calls-col">Diff</th>
+                <th class="strike-h">—</th>
+                <th class="puts-col">Diff</th>
+                <th class="puts-col">PE OI (now)</th>
+                <th class="puts-col">PE OI (prev)</th>
+            </tr>
+        </thead>
+        <tbody>
+""" + comp_rows_html + """
+        </tbody>
+    </table>
+</div>
+"""
+    st.markdown(comp_html, unsafe_allow_html=True)
