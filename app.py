@@ -439,10 +439,22 @@ with pw_col:
 # ===================================
 # OPTION CHAIN TABLE
 # ===================================
+range_col, _ = st.columns([1, 3])
+with range_col:
+    strike_range = st.selectbox(
+        "Strikes around ATM",
+        [5, 10, 15, 20, 30, "All"],
+        index=1,
+        key="strike_range",
+    )
+
 df = df.reset_index(drop=True)
 atm_pos = (df["Strike"] - atm_strike).abs().idxmin()
-start   = max(0, atm_pos - 10)
-end     = min(len(df), atm_pos + 11)
+if strike_range == "All":
+    start, end = 0, len(df)
+else:
+    start = max(0, atm_pos - strike_range)
+    end   = min(len(df), atm_pos + strike_range + 1)
 
 chain_df = df.iloc[start:end].copy()
 chain_df = chain_df.sort_values("Strike").reset_index(drop=True)
